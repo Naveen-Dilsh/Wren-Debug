@@ -258,10 +258,60 @@ const getGroupMessages = async function (req, res) {
   }
 }
 
+const leaveGroup = async (req, res) => {
+  try {
+    console.log("Leave group request received");
+    const { groupId } = req.params;
+    const { userId } = req.body;
+
+    if (!groupId || !userId) {
+      return res.status(400).json({
+        status: false,
+        message: 'Group ID and User ID are required'
+      });
+    }
+
+    // Convert IDs to ObjectId if they aren't already
+    const groupObjectId = typeof groupId === 'string' ? new ObjectId(groupId) : groupId;
+    const userObjectId = typeof userId === 'string' ? new ObjectId(userId) : userId;
+
+    // Find the group and remove the user from the members array
+    const updatedGroup = await Groups.findOneAndUpdate(
+      { _id: groupObjectId },
+      { 
+        $pull: { members: userObjectId },
+        updatedAt: Date.now()
+      },
+      { new: true }
+    );
+
+    if (!updatedGroup) {
+      return res.status(404).json({
+        status: false,
+        message: 'Group not found'
+      });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: 'Successfully left the group',
+      data: updatedGroup
+    });
+  } catch (error) {
+    console.error('Error in leaveGroup controller:', error);
+    return res.status(500).json({
+      status: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   createGroup,
   getAllGroups,
   saveMessage,
   getGroupMessages,
   uploadGroupIcon,
+  leaveGroup,
 };
