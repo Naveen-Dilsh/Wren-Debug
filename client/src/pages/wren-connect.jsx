@@ -17,6 +17,13 @@ const WrenConnect = () => {
   const [selectedChat, setSelectedChat] = useState("");
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [popupVisible, setPopupVisible] = useState(false);
+  const [isGroupChat, setIsGroupChat] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [groupName, setGroupName] = useState("");
+  const [groupImage, setGroupImage] = useState(Default);
+  const [showGroupCreationPopup, setShowGroupCreationPopup] = useState(false);
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -92,12 +99,7 @@ const WrenConnect = () => {
     }
   }, [selectedChat]);
 
-  const [popupVisible, setPopupVisible] = useState(false);
-  const [isGroupChat, setIsGroupChat] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState([]);
-  const [groupName, setGroupName] = useState("");
-  const [groupImage, setGroupImage] = useState(Default);
-  const [showGroupCreationPopup, setShowGroupCreationPopup] = useState(false);
+
 
   const handleChatSelect = async (chat) => {
     try {
@@ -191,50 +193,174 @@ const WrenConnect = () => {
     setShowGroupCreationPopup(true);
   };
 
-  const handleGroupCreation = () => {
+  // NEW implementation in the working file
+const handleGroupCreation = () => {
+  if (!groupName.trim()) {
+    sendNotify("error", "Please enter a group name")
+    return
+  }
 
-    // implimentation for store groups in db
-    const storedUser = localStorage.getItem(process.env.REACT_APP_CURRENT_USER);
-    if (storedUser) {
-      const currentUser = JSON.parse(storedUser);
-      const userId = currentUser.id;
-      console.log("implimentation for store groups in db" + userId);
+  // Get current user from local storage
+  const storedUser = localStorage.getItem(process.env.REACT_APP_CURRENT_USER)
+  if (!storedUser) {
+    sendNotify("error", "User not found. Please log in again")
+    return
+  }
 
-      const selectedUserIds = selectedUsers.map((user) => user.id);
-      console.log(currentUser);
-      console.log(selectedUserIds);
-      createGroup(
-        {
-          name: groupName || "New Group",
-          icon: groupImage,
-          createdBy: userId,
-          members: selectedUserIds,
-        },
-        (groupId) => {
-          // Update the selected chat with the new groupId
-          if (groupId) {
-            const newGroup = {
-              id: groupId,
-              imageURL: groupImage,
-              groupName: groupName || "New Group",
-              lastMessage: "Group Created by you",
-              dateTime: "Now",
-              unreadMessages: 0,
-              type: "groups",
-               isOnline: true,
-              messages: [],
-            };
-            setMessageData([...messageData, newGroup]);
-            setShowGroupCreationPopup(false);
-            setSelectedUsers([]);
-            console.log("Group created successfully with ID:", groupId);
+  const currentUser = JSON.parse(storedUser)
+  const userId = currentUser.id
+  const selectedUserIds = selectedUsers.map((user) => user.id)
+
+  // Create group WITHOUT any image first
+  const groupData = {
+    name: groupName.trim(),
+    icon: null, // Don't send any image data initially
+    createdBy: userId,
+    members: [...selectedUserIds, userId], // Include current user in group
+  }
+
+  console.log("Creating group with data:", groupData)
+
+  // Create group API call
+  const payload = {
+    method: "POST",
+    url: "/chat/initgroup",
+    data: groupData,
+  }
+
+  fetchApi(payload)
+    .then((response) => {
+      console.log("Group creation response:", response)
+
+      if (response?.error) {
+        sendNotify("error", response?.error?.response?.data?.message || "Failed to create group")
+      } else {
+        // Try different paths to find the groupId
+        const groupId =
+          response?.data?.groupId ||
+          response?.data?._id ||
+          response?.data?.id ||
+          (response?.data && response?.data.group && response?.data.group._id)
+
+        console.log("Extracted groupId:", groupId)
+
+        if (groupId) {
+          // Add new group to message data
+          const newGroup = {
+            id: groupId,
+            imageURL: Default, // Use default image initially
+            groupName: groupName.trim(),
+            lastMessage: "Group created",
+            dateTime: new Date().toLocaleString(),
+            unreadMessages: 0,
+            type: "groups",
+            isOnline: true,
+            messages: [],
           }
+
+          setMessageData((prevData) => [...prevData, newGroup])
+          setSelectedChat(newGroup)
+
+          // If we have a custom image (not the default), upload it separately
+          if (groupImage !== Default) {
+            // Upload image separately - this is new code
+            // Check if it's a blob URL
+            const isGroupImageBlob = groupImage.startsWith("blob:")
+
+            if (isGroupImageBlob) {
+              // Convert blob to file data before sending to server
+              fetch(groupImage)
+                .then((res) => res.blob())
+                .then(async (blob) => {
+                  try {
+                    // Convert blob to base64 string
+                    const reader = new FileReader()
+                    const base64Promise = new Promise((resolve) => {
+                      reader.onloadend = () => resolve(reader.result)
+                      reader.readAsDataURL(blob)
+                    })
+
+                    const base64String = await base64Promise
+
+                    // Send the base64 string directly
+                    const iconPayload = {
+                      method: "POST",
+                      url: `/chat/uploadGroupIcon/${groupId}`,
+                      data: { icon: base64String },
+                    }
+
+                    const iconRes = await fetchApi(iconPayload)
+                    console.log("Icon upload response:", iconRes)
+
+                    if (iconRes?.error) {
+                      sendNotify("warning", "Group created but icon upload failed")
+                    } else {
+                      // Update the group icon in the UI
+                      setMessageData((prevData) =>
+                        prevData.map((item) => (item.id === groupId ? { ...item, imageURL: groupImage } : item)),
+                      )
+
+                      if (selectedChat && selectedChat.id === groupId) {
+                        setSelectedChat((prev) => ({ ...prev, imageURL: groupImage }))
+                      }
+
+                      sendNotify("success", "Group created with custom icon")
+                    }
+                  } catch (err) {
+                    console.error("Error processing or uploading icon:", err)
+                    sendNotify("warning", "Group created but icon upload failed")
+                  }
+                })
+            } else {
+              // It's already a data URL, send it directly
+              const iconPayload = {
+                method: "POST",
+                url: `/chat/uploadGroupIcon/${groupId}`,
+                data: { icon: groupImage },
+              }
+
+              fetchApi(iconPayload)
+                .then((iconRes) => {
+                  console.log("Icon upload response:", iconRes)
+                  if (iconRes?.error) {
+                    sendNotify("warning", "Group created but icon upload failed")
+                  } else {
+                    // Update the group icon in the UI
+                    setMessageData((prevData) =>
+                      prevData.map((item) => (item.id === groupId ? { ...item, imageURL: groupImage } : item)),
+                    )
+
+                    if (selectedChat && selectedChat.id === groupId) {
+                      setSelectedChat((prev) => ({ ...prev, imageURL: groupImage }))
+                    }
+
+                    sendNotify("success", "Group created with custom icon")
+                  }
+                })
+                .catch((err) => {
+                  console.error("Error uploading icon:", err)
+                  sendNotify("warning", "Group created but icon upload failed")
+                })
+            }
+          } else {
+            sendNotify("success", "Group created successfully")
+          }
+
+          setShowGroupCreationPopup(false)
+          setGroupName("")
+          setGroupImage(Default)
+          setSelectedUsers([])
+        } else {
+          console.error("Group created but couldn't find ID in response", response)
+          sendNotify("error", "Group created but no ID returned")
         }
-      );
-    } else {
-      console.log("User not found in localStorage");
-    }
-  };
+      }
+    })
+    .catch((error) => {
+      console.error("Error creating group:", error)
+      sendNotify("error", "Failed to create group")
+    })
+}
 
   const renderAddNewChatPopup = () => (
     <div className="popup-overlay">
