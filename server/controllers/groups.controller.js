@@ -284,6 +284,28 @@ const leaveGroup = async (req, res) => {
       },
       { new: true }
     );
+      // Find the group first to check current members
+const group = await Groups.findById(groupObjectId);
+
+// Remove the user from the members array
+const updatedMembers = group.members.filter(
+  member => member.toString() !== userObjectId.toString()
+);
+
+// Check if the members array will be empty after removing this user
+if (updatedMembers.length === 0) {
+  // Delete the group if no members remain
+  await Groups.findByIdAndDelete(groupObjectId);
+  
+  // Also delete all associated messages
+  await GroupMessage.deleteMany({ groupId: groupObjectId });
+  
+  return res.status(200).json({
+    status: true,
+    message: 'User left the group and group was deleted as no members remain',
+    wasDeleted: true
+  });
+}
 
     if (!updatedGroup) {
       return res.status(404).json({
