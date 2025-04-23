@@ -38,6 +38,7 @@ const ChatBoxContainer = ({ title, messageData, type, onChatSelect, searchTerm }
       {filteredChats.map((chat, index) => (
         <div key={index} onClick={() => onChatSelect(chat)}>
           <SingleGroupChat
+            chatId={chat.id}
             imageURL={chat.imageURL}
             groupName={chat.groupName}
             lastMessage={getMessageText(chat.lastMessage) || ""}
