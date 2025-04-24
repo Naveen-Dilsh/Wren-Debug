@@ -167,6 +167,7 @@ const getAllGroups = async function (req, res) {
     if (groups.length === 0) {
       return response.error(res, 404, "No groups found.");
     }
+    console.log("Groups fetched successfully:", groups);
     // Respond with the list of groups
     return response.success(res, 200, "Groups fetched successfully.", groups);
   } catch (error) {

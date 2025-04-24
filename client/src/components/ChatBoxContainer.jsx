@@ -20,14 +20,14 @@ const ChatBoxContainer = ({ title, messageData, type, onChatSelect, searchTerm }
       return message;
     }
   }
-
+  console.log("Message Data:", messageData);
   // Filter chats by type and search term
   const filteredChats = messageData
     .filter((chat) => chat.type === type)
     .filter((chat) =>
       chat.groupName.toLowerCase().includes(searchTerm.toLowerCase())
     );
-
+    console.log("Filtered Chats:", filteredChats);
   if (filteredChats.length === 0) {
     return null; 
   }
