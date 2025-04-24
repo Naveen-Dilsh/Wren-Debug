@@ -9,6 +9,12 @@ const SingleGroupChat = ({ chatId, imageURL, groupName, lastMessage, dateTime, u
     localStorage.getItem(process.env.REACT_APP_CURRENT_USER)
   );
 
+  // useEffect(() => {
+  //   const deletedChats = JSON.parse(localStorage.getItem('deletedChats')) || [];
+  //   if (deletedChats.includes(chatId)) {
+  //     setIsDeleted(true);
+  //   }
+  // }, [chatId]);
   const handleLeaveGroup = async () => {
     console.log(`Leaving Group ID: ${chatId} for user: ${currentUser.id}`);
     
@@ -27,8 +33,8 @@ const SingleGroupChat = ({ chatId, imageURL, groupName, lastMessage, dateTime, u
       const response = await fetchApi(payload);
       if (!response.error) {
         // Store deleted chat IDs in local storage
-        const deletedChats = JSON.parse(localStorage.getItem('deletedChats')) || [];
-        localStorage.setItem('deletedChats', JSON.stringify([...deletedChats, chatId]));
+        // const deletedChats = JSON.parse(localStorage.getItem('deletedChats')) || [];
+        // localStorage.setItem('deletedChats', JSON.stringify([...deletedChats, chatId]));
         
         setIsDeleted(true);
         console.log(`Left group ${chatId} successfully.`);

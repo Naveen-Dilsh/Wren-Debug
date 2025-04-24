@@ -519,59 +519,54 @@ const handleGroupCreation = () => {
 
       // Extract groups from response data
       const groups = response.data || [];
+      console.log("Fetched groups:", groups);
       const currentUser = JSON.parse(
         localStorage.getItem(process.env.REACT_APP_CURRENT_USER)
       );
       // Filter and map groups for the current user
-      const updatedGroups = groups
-        .filter((group) => {
-          // Ensure that group.members is an array and group.createdBy exists
-          const isMember =
-            group.members && Array.isArray(group.members)
-              ? group.members.some(
-                  (memberId) =>
-                    memberId.toString() === currentUser.id.toString()
-                )
-              : false;
-
-          const isCreatedByUser = group.createdBy
-            ? group.createdBy.toString() === currentUser.id.toString()
-            : false;
-
-          // Keep the group if the current user is a member or the creator
-          return isMember || isCreatedByUser;
-        })
-        .map((group) => {
-          // console.log(JSON.stringify(group.messages));
-          if (group.messages && group.messages.length > 0) {
-          }
-          let type=group.messages[group.messages.length - 1]?.attachment?.length
-          console.log(type,"type66")
-          return {
-            id: group._id,
-            imageURL: group.icon || "",
-            groupName: group.name || "New Group",
-            lastMessage:
-              group.messages && group.messages.length > 0&&!type
-                ? group.messages[group.messages.length - 1].content
-                :type? <i className="fa-solid fa-images">{type}</i> :"No messages",
-            dateTime:new Date(group.createdAt * 1000).toLocaleString("en-GB", {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),            
-            unreadMessages: group.messages
-              ? group.messages.filter((msg) => !msg.read).length
-              : 0,
-            type: "groups",
-            isOnline: true, 
-            messages:
-              formatMessages(group.messages, currentUser.id.toString()) || [],
-          };
-        });
-
+      // Inside fetchAllGroups function
+const updatedGroups = groups
+.filter((group) => {
+  // ONLY check if the user is in the members array
+  // Don't consider createdBy as a separate condition for showing groups
+  return group.members && Array.isArray(group.members)
+    ? group.members.some(
+        (memberId) => memberId.toString() === currentUser.id.toString()
+      )
+    : false;
+})
+.map((group) => {
+  // Rest of your mapping logic remains the same
+  if (group.messages && group.messages.length > 0) {
+  }
+  let type = group.messages[group.messages.length - 1]?.attachment?.length;
+  console.log(type, "type66");
+  return {
+    id: group._id,
+    imageURL: group.icon || "",
+    groupName: group.name || "New Group",
+    lastMessage:
+      group.messages && group.messages.length > 0 && !type
+        ? group.messages[group.messages.length - 1].content
+        : type
+        ? <i className="fa-solid fa-images">{type}</i>
+        : "No messages",
+    dateTime: new Date(group.createdAt * 1000).toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    unreadMessages: group.messages
+      ? group.messages.filter((msg) => !msg.read).length
+      : 0,
+    type: "groups",
+    isOnline: true,
+    messages: formatMessages(group.messages, currentUser.id.toString()) || [],
+  };
+});
+        console.log("Updated groups:", updatedGroups);
       // Update the state with the filtered and mapped groups
       setMessageData((prevMessageData) => [
         ...prevMessageData,
